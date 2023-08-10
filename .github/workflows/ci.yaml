@@ -1,0 +1,64 @@
+name: CI
+on: [pull_request]
+
+jobs:
+  commitlint:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Git Repository
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+
+      # Workound for commilint issue
+      # https://github.com/wagoid/commitlint-github-action/issues/560#issuecomment-1277659864
+      - name: Remove tsconfig.json
+        run: rm tsconfig.json
+
+      - name: Check Commit Messages
+        uses: wagoid/commitlint-github-action@v5
+
+  checks:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Git Repository
+        uses: actions/checkout@v3
+
+      - name: Setup Node
+        uses: actions/setup-node@v3
+        with:
+          node-version: 18.17.0
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v2
+        with:
+          version: 8
+          run_install: false
+
+      - name: Get pnpm Cache Directory
+        shell: bash
+        run: |
+          echo "PNPM_CACHE_PATH=$(pnpm store path --silent)" >> $GITHUB_ENV
+
+      - uses: actions/cache@v3
+        name: Setup pnpm Cache
+        with:
+          path: ${{ env.PNPM_CACHE_PATH }}
+          key: ${{ runner.os }}-pnpm-store-${{ hashFiles('**/pnpm-lock.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-pnpm-store-
+
+      - name: Install
+        run: pnpm install
+
+      - name: Typecheck
+        run: pnpm typecheck
+
+      - name: Prettier
+        run: pnpm prettier
+
+      - name: Lint
+        run: pnpm lint
+
+      - name: Production Build
+        run: pnpm build:production
